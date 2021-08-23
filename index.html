@@ -16,8 +16,8 @@
         //      Init
         //////////////////////////////////////////////////////////////////////////////////
         // キャンバスの作成
-        var width = 640;
-        var height = 640;
+        var width = 720;
+        var height = 720;
         var canvasSize = new THREE.Vector2(width, height);
 
         // renderer
@@ -52,7 +52,7 @@
         //////////////////////////////////////////////////////////////////////////////////
         var obj;
         var loader = new THREE.GLTFLoader();
-        var url = "uziteru.glb";
+        var url = "uziteru2.glb";
         loader.load( url, function(data) {
             obj = data.scene;
             scene.add( obj );
