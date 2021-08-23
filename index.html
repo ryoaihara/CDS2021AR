@@ -2,167 +2,83 @@
 <html lang="ja">
 <head>
     <meta charset="utf-8">
-    <title>ARうじてるくん</title>
+    <title>モデル表示サンプル</title>
 </head>
 
 <body style="margin : 0px; overflow: hidden;">
-    <video id="myVideo" autoplay="true" muted playsinline="true" style="object-fit: cover;"></video>
-    <canvas id="myCanvas" style="position: absolute; left: 0px; top:0px; z-index:2; pointer-events: none; "></canvas>
-
-    <!-- Three.js (CDN) -->
+    <canvas id="myCanvas"></canvas>
+    <!-- Three.js -->
     <script src="https://unpkg.com/three@0.110.0/build/three.min.js"></script>
     <script src="https://unpkg.com/three@0.110.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://unpkg.com/three@0.110.0/examples/js/loaders/GLTFLoader.js"></script>
-    <!-- <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar.js"></script> -->
-    <script src="three.js/build/ar.min.js"></script>
-
     <script>
         //////////////////////////////////////////////////////////////////////////////////
-        //      カメラの初期化
+        //      Init
         //////////////////////////////////////////////////////////////////////////////////
-        // カメラに要求するカメラ解像度
-        var requireWidth = 640;
-        var requireHeight = 480;
+        // キャンバスの作成
+        var width = 640;
+        var height = 640;
+        var canvasSize = new THREE.Vector2(width, height);
 
-        var videoWidth;
-        var videoHeight;
+        // renderer
+        var renderer    = new THREE.WebGLRenderer({
+            canvas: document.querySelector('#myCanvas'),
+            antialias: true,
+        });
+        renderer.setClearColor(0x000033, 1.0);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize( width, height );
 
-        var videoElement = document.getElementById('myVideo');
+        //////////////////////////////////////////////////////////////////////////////////
+        //      シーンの初期化
+        //////////////////////////////////////////////////////////////////////////////////
+        var scene = new THREE.Scene();
 
-        var mode = "environment"; // インカメラを優先する場合"user"
-        var constraints = {
-            video: {
-                width: requireWidth,
-                height: requireHeight,
-                facingMode: mode,
-            },
-            audio: false
-        };
+        //////////////////////////////////////////////////////////////////////////////////
+        //      カメラの作成
+        //////////////////////////////////////////////////////////////////////////////////
+        const camera = new THREE.PerspectiveCamera(60, width / height, 0.01, 100);
+        camera.position.set(0, 0.0, 5.0);
 
-        // getUserMedia成功時
-        var onOpenStream = function(stream){
-            // 実際のカメラ解像度を取得
-            var track = stream.getTracks()[0];
-            var setting = track.getSettings();
-            videoWidth = setting.width;
-            videoHeight = setting.height;
-            videoElement.srcObject = stream;
-            InitCanvas();
-        }
+        //////////////////////////////////////////////////////////////////////////////////
+        //      マウス操作（OrbitControls）
+        //////////////////////////////////////////////////////////////////////////////////
+        controls = new THREE.OrbitControls( camera, renderer.domElement );
+        controls.target.set( 0, 0, 0 );
+        controls.update();
 
-        // カメラの初期化
-        if (navigator.mediaDevices.getUserMedia != null) {
-            navigator.mediaDevices.getUserMedia(constraints)
-                .then(function(stream) {
-                    onOpenStream(stream);
-                })
-                .catch(function(err){
-                    window.alert("カメラの初期化に失敗しました。端末およびブラウザの設定で、カメラへのアクセスが許可されているかを確認してください。");
-                });
-        }
-        else{
-            window.alert("このブラウザはWebRTCのカメラ初期化に対応していません。");
-        }
+        //////////////////////////////////////////////////////////////////////////////////
+        //      オブジェクトのロード
+        //////////////////////////////////////////////////////////////////////////////////
+        var obj;
+        var loader = new THREE.GLTFLoader();
+        var url = "model.glb";
+        loader.load( url, function(data) {
+            obj = data.scene;
+            scene.add( obj );
+        }, undefined, function ( error ) {
+            console.error( error );
+        } );
 
+        //////////////////////////////////////////////////////////////////////////////////
+        //      ライティング
+        //////////////////////////////////////////////////////////////////////////////////
+        // 平行光源を作成
+        const directionalLight = new THREE.DirectionalLight(0xFFFFFF);
+        directionalLight.position.set(1, 1, 5);
+        scene.add(directionalLight);
+        // 環境光を追加
+        const light = new THREE.HemisphereLight(0xFFFFFF, 0x333333, 2.0);
+        light.position.set(1, 5, 1);
+        scene.add(light);
 
-        // キャンバスの初期化
-        var InitCanvas = function(){
-            //////////////////////////////////////////////////////////////////////////////////
-            //      キャンバスの初期化
-            //////////////////////////////////////////////////////////////////////////////////
-            var canvasElement = document.querySelector('#myCanvas');
-            //canvasElement.setSize( videoWidth, videoHeight );
-
-            // renderer
-            var renderer    = new THREE.WebGLRenderer({
-                canvas: canvasElement,
-                antialias: true,
-                alpha: true
-            });
-            renderer.setClearColor(new THREE.Color('black'), 0)
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setSize( videoWidth, videoHeight );
-
-            //////////////////////////////////////////////////////////////////////////////////
-            //      シーンの初期化
-            //////////////////////////////////////////////////////////////////////////////////
-            var scene = new THREE.Scene();
-
-            //////////////////////////////////////////////////////////////////////////////////
-            //      arの初期化
-            //////////////////////////////////////////////////////////////////////////////////
-            var arToolkitContext = new THREEx.ArToolkitContext({
-                cameraParametersUrl: THREEx.ArToolkitContext.baseURL + '../data/data/camera_para.dat',
-                detectionMode: 'color_and_matrix',
-                matrixCodeType: '4x4_BCH_13_9_3',
-                patternRatio: 0.80, // マーカー作成時のpatternRatioに合わせる
-                maxDetectionRate: 10,
-                canvasWidth: videoWidth,
-                canvasHeight: videoHeight,
-            })
-            arToolkitContext.init(function onCompleted(){
-            })
-
-            //////////////////////////////////////////////////////////////////////////////////
-            //      マーカーが読み込まれると表示されるオブジェクトを、シーンに追加します。
-            //////////////////////////////////////////////////////////////////////////////////
-            var markerRoot = new THREE.Group();
-            scene.add(markerRoot);
-            var markerControls = new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
-                type : 'pattern',
-                patternUrl : "pattern-uziteru_marker.patt",
-                changeMatrixMode : 'modelViewMatrix',
-                minConfidence: 0.50
-            })
-
-            //////////////////////////////////////////////////////////////////////////////////
-            //      カメラの作成
-            //////////////////////////////////////////////////////////////////////////////////
-            const camera = new THREE.PerspectiveCamera(60, videoWidth / videoHeight, 0.01, 100); // 今回は原点配置のまま
-
-            //////////////////////////////////////////////////////////////////////////////////
-            //      マウス操作（OrbitControls）
-            //////////////////////////////////////////////////////////////////////////////////
-            // controls = new THREE.OrbitControls( camera, renderer.domElement );
-            // controls.target.set( 0, 0, 0 );
-            // controls.update();
-
-            //////////////////////////////////////////////////////////////////////////////////
-            //      オブジェクトのロード
-            //////////////////////////////////////////////////////////////////////////////////
-            var obj;
-            var loader = new THREE.GLTFLoader();
-            var url = "uziteru.glb";
-            loader.load( url, function(data) {
-                obj = data.scene;
-                markerRoot.add( obj ); // マーカーで表示されるオブジェクトの下に配置します。
-            }, undefined, function ( error ) {
-                console.error( error );
-            } );
-
-            //////////////////////////////////////////////////////////////////////////////////
-            //      ライティング
-            //////////////////////////////////////////////////////////////////////////////////
-            // 平行光源を作成
-            const directionalLight = new THREE.DirectionalLight(0xFFFFFF);
-            directionalLight.position.set(1, 1, 5);
-            scene.add(directionalLight);
-            // 環境光を追加
-            const light = new THREE.HemisphereLight(0xFFFFFF, 0x333333, 2.0);
-            light.position.set(1, 5, 1);
-            scene.add(light);
-
-            //////////////////////////////////////////////////////////////////////////////////
-            //      毎フレームの描画処理
-            //////////////////////////////////////////////////////////////////////////////////
-            drawFrame();
-            function drawFrame() {
-                // 映像を解析してARを実行
-                arToolkitContext.update( videoElement );
-
-                renderer.render(scene, camera);
-                requestAnimationFrame(drawFrame);
-            }
+        //////////////////////////////////////////////////////////////////////////////////
+        //      毎フレームの描画処理
+        //////////////////////////////////////////////////////////////////////////////////
+        drawFrame();
+        function drawFrame() {
+            renderer.render(scene, camera);
+            requestAnimationFrame(drawFrame);
         }
     </script>
 </body>
